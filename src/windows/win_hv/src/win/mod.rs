@@ -145,6 +145,7 @@ pub enum NtStatus {
     NotAllocated = 0xC00000A0,
     AccessViolation = 0xC0000005,
     BufferTooSmall = 0xc0000023,
+    AccessDenied = 0xC0000022,
 }
 
 impl NtStatus {
@@ -231,6 +232,46 @@ pub enum MdlFlags {
 #[derive(Clone, Debug)]
 pub enum CreateThreadNotifType {
     PsCreateThreadNotifyNonSystem
+}
+
+/// Registry pre/post operation notification classes.
+/// Only the classes we actively inspect are listed; the rest are never
+/// matched in the callback and are treated as pass-through.
+#[repr(u32)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RegNotifyClass {
+    RegNtPreDeleteKey         = 0,
+    RegNtPreSetValueKey       = 1,
+    RegNtPreDeleteValueKey    = 2,
+    RegNtPreSetInformationKey = 3,
+    RegNtPreRenameKey         = 4,
+    RegNtPreCreateKey         = 5,
+    RegNtPreCreateKeyEx       = 26,
+    // Everything else — treated as pass-through.
+    RegNtUnknown              = 0xFFFF_FFFF,
+}
+
+impl RegNotifyClass {
+    pub fn from_u32(v: u32) -> Self {
+        match v {
+            0  => Self::RegNtPreDeleteKey,
+            1  => Self::RegNtPreSetValueKey,
+            2  => Self::RegNtPreDeleteValueKey,
+            3  => Self::RegNtPreSetInformationKey,
+            4  => Self::RegNtPreRenameKey,
+            5  => Self::RegNtPreCreateKey,
+            26 => Self::RegNtPreCreateKeyEx,
+            _  => Self::RegNtUnknown,
+        }
+    }
+}
+
+/// Info structure passed for pre-open/pre-create operations.
+/// The first field is always a pointer to the full key path.
+#[repr(C)]
+pub struct REG_PRE_KEY_INFORMATION {
+    pub Object: PVOID,
+    pub CompleteName: *mut UNICODE_STRING,
 }
 
 pub(crate) type PsTerminateProcessType = unsafe extern "C" fn(PEPROCESS, NtStatus) -> NtStatus;
@@ -407,6 +448,21 @@ unsafe extern "C" {
     ) -> NtStatus;
 
     pub fn ZwClose(Handle: HANDLE) -> NtStatus;
+
+    /// Registers a registry-change callback.
+    /// `Altitude` must point to a valid UNICODE_STRING for the lifetime of the callback.
+    /// Pass `NULL` for `Driver` (acceptable for WDM drivers that aren't a minifilter).
+    pub fn CmRegisterCallbackEx(
+        Function:  PVOID,
+        Altitude:  *mut UNICODE_STRING,
+        Driver:    PVOID,
+        Context:   PVOID,
+        Cookie:    *mut i64,
+        Reserved:  PVOID,
+    ) -> NtStatus;
+
+    /// Unregisters a previously registered registry callback.
+    pub fn CmUnRegisterCallback(Cookie: i64) -> NtStatus;
 }
 
 #[repr(C)]

@@ -1,4 +1,5 @@
 use crate::HX_GUARD;
+use crate::nt::guard::registry_protection;
 use crate::nt::registry::NtKey;
 use crate::win::Boolean;
 use core::arch::x86_64::{
@@ -9,7 +10,9 @@ pub static mut VALID_CALLERS: [u64; 256] = [0; 256];
 //pub static VALID_CALLER_COUNT: AtomicU32 = AtomicU32::new(0);
 
 pub enum RegistryProtection {
-    Initialized(u64),
+    /// Callback not yet registered.
+    Initialized(i64),
+    /// Feature is enabled and the callback cookie is stored inside.
     Enabled,
     Disabled,
 }
@@ -132,7 +135,10 @@ impl HxGuard {
         }
         match self.registry_protection {
             RegistryProtection::Enabled => {
-                log::warn!("Registry protection is not implemented!")
+                match registry_protection::register_registry_protection() {
+                    Ok(_)  => log::info!("Registry protection active."),
+                    Err(e) => log::warn!("Failed to enable registry protection: {}", e),
+                }
             }
             RegistryProtection::Disabled => {}
             _ => unreachable!(),
