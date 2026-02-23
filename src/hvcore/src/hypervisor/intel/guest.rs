@@ -165,6 +165,35 @@ impl Guest for VmxGuest {
     fn regs(&mut self) -> &mut Registers {
         &mut self.registers
     }
+
+    fn invalidate_tlb(&mut self) {
+        // Read the current EPTP from VMCS
+        let eptp = x86::vmx::vmread(x86::vmx::vmcs::control::EPTP);
+
+        // We use the `invept` instruction (Single-context invalidation).
+        // x86::bits64::vmx::InvEptType::SingleContext is 1
+        // x86::bits64::vmx::InvEptDescriptor { eptp, reserved: 0 } is just a 128-bit memory operand.
+        #[repr(C, align(16))]
+        struct InvEptDescriptor {
+            eptp: u64,
+            reserved: u64,
+        }
+
+        let desc = InvEptDescriptor {
+            eptp: eptp as u64,
+            reserved: 0,
+        };
+
+        // Invoke INVEPT.
+        unsafe {
+            core::arch::asm!(
+                "invept {0}, [{1}]",
+                in(reg) 1u64, // Single-context
+                in(reg) &desc as *const _,
+                options(nostack, preserves_flags)
+            );
+        }
+    }
 }
 
 impl VmxGuest {

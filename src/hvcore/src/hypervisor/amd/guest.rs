@@ -149,6 +149,10 @@ impl Guest for SvmGuest {
     fn regs(&mut self) -> &mut Registers {
         &mut self.registers
     }
+
+    fn invalidate_tlb(&mut self) {
+        self.vmcb.control_area.tlb_control = TlbControl::FlushGuests as _;
+    }
 }
 
 impl SvmGuest {

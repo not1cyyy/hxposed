@@ -96,7 +96,7 @@ pub(crate) fn vmcall_handler(guest: &mut dyn Guest, info: HypervisorCall) -> boo
         ServiceFunction::GetSetPageAttribute
         | ServiceFunction::AllocateMemory
         | ServiceFunction::FreeMemory
-        | ServiceFunction::MapVaToPa => services::handle_memory_services(&request),
+        | ServiceFunction::MapVaToPa => services::handle_memory_services(guest, &request),
         ServiceFunction::RegisterNotifyEvent | ServiceFunction::UnregisterNotifyEvent => {
             services::handle_callback_services(&request)
         }

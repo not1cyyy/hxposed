@@ -233,6 +233,9 @@ pub trait Guest {
     fn regs(&mut self) -> &mut Registers;
 
     fn write_response(&mut self, response: HypervisorResponse);
+
+    /// Invalidates the TLB (e.g. EPT/NPT cache) for this guest.
+    fn invalidate_tlb(&mut self);
 }
 
 /// The reasons of VM-exit and additional information.

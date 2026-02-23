@@ -82,15 +82,20 @@ pub fn handle_security_services(request: &HypervisorRequest) -> HypervisorRespon
     }
 }
 
+use hv::hypervisor::host::Guest;
+
 ///
 /// # Handle Memory Services
 ///
 /// Dispatches the memory service request to [memory_services].
 ///
-pub fn handle_memory_services(request: &HypervisorRequest) -> HypervisorResponse {
+pub fn handle_memory_services(
+    guest: &mut dyn Guest,
+    request: &HypervisorRequest,
+) -> HypervisorResponse {
     match request.call.func() {
         ServiceFunction::GetSetPageAttribute => {
-            get_set_page_attribute(PageAttributeRequest::from_raw(request))
+            get_set_page_attribute(guest, PageAttributeRequest::from_raw(request))
         }
         ServiceFunction::MapVaToPa => map_va_to_pa(MapVaToPaRequest::from_raw(request)),
         ServiceFunction::AllocateMemory => {

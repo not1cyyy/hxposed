@@ -13,8 +13,10 @@ use hxposed_core::hxposed::responses::empty::EmptyResponse;
 use hxposed_core::hxposed::responses::memory::*;
 use hxposed_core::hxposed::responses::{HypervisorResponse, VmcallResponse};
 
+use hv::hypervisor::host::Guest;
+
 // I hate this so much
-pub fn get_set_page_attribute(request: PageAttributeRequest) -> HypervisorResponse {
+pub fn get_set_page_attribute(guest: &mut dyn Guest, request: PageAttributeRequest) -> HypervisorResponse {
     let cr = NtProcess::from_ptr(request.addr_space as _).get_user_directory_table_base();
     let _ctx = Cr3Context::begin(cr.into());
 
@@ -28,6 +30,7 @@ pub fn get_set_page_attribute(request: PageAttributeRequest) -> HypervisorRespon
             match request.operation {
                 PageAttributeOperation::Set => {
                     *field = PageMapLevel4::from_bits(request.type_bits);
+                    guest.invalidate_tlb();
                     0
                 }
                 PageAttributeOperation::Get =>(*field).into_bits(),
@@ -49,6 +52,7 @@ pub fn get_set_page_attribute(request: PageAttributeRequest) -> HypervisorRespon
             match request.operation {
                 PageAttributeOperation::Set => {
                     *field = PageDirectoryPointerEntry::from_bits(request.type_bits);
+                    guest.invalidate_tlb();
                     0
                 }
                 PageAttributeOperation::Get => (*pml4).into_bits(),
@@ -78,6 +82,7 @@ pub fn get_set_page_attribute(request: PageAttributeRequest) -> HypervisorRespon
             match request.operation {
                 PageAttributeOperation::Set => {
                     *field = PageDirectoryEntry::from_bits(request.type_bits);
+                    guest.invalidate_tlb();
                     0
                 }
                 PageAttributeOperation::Get => (*field).into_bits(),
@@ -115,7 +120,7 @@ pub fn get_set_page_attribute(request: PageAttributeRequest) -> HypervisorRespon
             match request.operation {
                 PageAttributeOperation::Set => {
                     *field = PageTableEntry::from_bits(request.type_bits);
-                    // TODO: invalidate page?
+                    guest.invalidate_tlb();
                     0
                 }
                 PageAttributeOperation::Get => (*field).into_bits(),
